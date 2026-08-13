@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #faf8f4;
+  --color-surface: #ffffff;
+  --color-ink: #1c1b1a;
+  --color-ink-soft: #5b5652;
+  --color-line: #e6e1d8;
+
+  --color-indigo: #2b3a67;
+  --color-indigo-soft: #495a8f;
+  --color-indigo-tint: #eceef6;
+
+  --color-gold: #b8912b;
+  --color-gold-tint: #f6efdc;
+
+  --color-forest: #3f7d58;
+  --color-forest-tint: #e7f1eb;
+
+  --color-rust: #a8461f;
+  --color-rust-tint: #f7e9e2;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+  body {
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-indigo);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-gold-tint);
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+  }
+  .btn-primary {
+    background: var(--color-indigo);
+    color: white;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: background-color 150ms ease;
+  }
+  .btn-primary:hover {
+    background: var(--color-indigo-soft);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-indigo);
+    border: 1px solid var(--color-line);
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  .btn-secondary:hover {
+    background: var(--color-indigo-tint);
+    border-color: var(--color-indigo-soft);
+  }
+  .input-field {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    font-family: var(--font-body);
+  }
+  .input-field:focus {
+    border-color: var(--color-indigo);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-indigo-tint);
+  }
+  .badge-mastered {
+    background: var(--color-forest-tint);
+    color: var(--color-forest);
+  }
+  .badge-review {
+    background: var(--color-rust-tint);
+    color: var(--color-rust);
+  }
+  .badge-pending {
+    background: var(--color-indigo-tint);
+    color: var(--color-indigo);
+  }
+}
+
+@keyframes ring-fill {
+  from { stroke-dashoffset: var(--ring-circumference); }
+  to { stroke-dashoffset: var(--ring-offset); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mastery-ring-progress {
+    animation: ring-fill 900ms ease-out forwards;
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "course": "Intro to Data Structures",
+  "topics": [
+    {"title": "Arrays and Strings", "description": "Basic array operations, string manipulation, two-pointer technique"},
+    {"title": "Linked Lists", "description": "Singly and doubly linked lists, traversal, reversal"},
+    {"title": "Stacks and Queues", "description": "LIFO/FIFO structures, applications"},
+    {"title": "Trees", "description": "Binary trees, BST, traversals (inorder, preorder, postorder)"},
+    {"title": "Graphs", "description": "Graph representations, BFS, DFS"}
+  ]
+}
