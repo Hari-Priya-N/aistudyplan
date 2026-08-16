@@ -3,7 +3,7 @@ from typing import Optional
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from app.database import get_db
 from app import models
 
 settings = get_settings()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 # Using the `bcrypt` library directly (rather than passlib's CryptContext)
 # sidesteps a passlib<->bcrypt>=4.1 backend-detection incompatibility.
