@@ -1,5 +1,6 @@
 import json
 import uuid
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -19,11 +20,31 @@ Respond ONLY with JSON of this exact shape:
 """
 
 
-def _get_topic_context(llm: LLMProvider, user_id: str, topic_title: str, top_k: int = 6) -> str:
-    embedding = llm.embed([topic_title])[0]
-    results = query_chunks(embedding, user_id=user_id, top_k=top_k)
+def _get_topic_context(llm: LLMProvider, topic: models.Topic, query: str | None = None, top_k: int = 6) -> str:
+    """Retrieve source chunks for a topic — searched only inside the topic's own document."""
+    query = query or topic.title
+    embedding = llm.embed([query])[0]
+    results = query_chunks(embedding, document_ids=[topic.document_id], top_k=top_k)
     docs = results.get("documents", [[]])[0]
-    return "\n\n".join(docs) if docs else topic_title
+    return "\n\n".join(docs) if docs else query
+
+
+def next_quiz_kind(db: Session, user_id: str, topic_id: str) -> str:
+    """1st submitted attempt on a topic = pre-assessment, 2nd = post-preparation, then practice."""
+    done = (
+        db.query(models.QuizAttempt)
+        .filter(
+            models.QuizAttempt.user_id == user_id,
+            models.QuizAttempt.topic_id == topic_id,
+            models.QuizAttempt.score.isnot(None),
+        )
+        .count()
+    )
+    if done == 0:
+        return models.QuizKind.pre_assessment.value
+    if done == 1:
+        return models.QuizKind.post_preparation.value
+    return models.QuizKind.practice.value
 
 
 def generate_quiz(
@@ -33,7 +54,7 @@ def generate_quiz(
     if not topic:
         raise ValueError("Topic not found")
 
-    context = _get_topic_context(llm, user_id, topic.title)
+    context = _get_topic_context(llm, topic)
     messages = [
         {"role": "system", "content": QUIZ_GEN_SYSTEM_PROMPT},
         {
@@ -48,11 +69,21 @@ def generate_quiz(
         questions = parsed.get("questions", [])[:num_questions]
     except json.JSONDecodeError:
         questions = []
+    # Keep only well-formed questions so grading can never crash on bad LLM output.
+    questions = [
+        q for q in questions
+        if isinstance(q, dict) and q.get("question") and isinstance(q.get("options"), list)
+        and len(q["options"]) >= 2 and isinstance(q.get("correct_index"), int)
+        and 0 <= q["correct_index"] < len(q["options"])
+    ]
+    if not questions:
+        raise ValueError("The AI could not generate a quiz for this topic right now — please try again.")
 
     attempt = models.QuizAttempt(
         id=str(uuid.uuid4()),
         user_id=user_id,
         topic_id=topic_id,
+        kind=next_quiz_kind(db, user_id, topic_id),
         questions=questions,
         answers=None,
         score=None,
@@ -69,11 +100,28 @@ correct concept in 2-3 sentences."""
 
 
 def evaluate_quiz(
-    db: Session, llm: LLMProvider, attempt_id: str, answers: list[int]
+    db: Session, llm: LLMProvider, attempt_id: str, answers: list[int], user_id: str | None = None
 ) -> dict:
-    attempt = db.query(models.QuizAttempt).filter(models.QuizAttempt.id == attempt_id).first()
+    q = db.query(models.QuizAttempt).filter(models.QuizAttempt.id == attempt_id)
+    if user_id:
+        q = q.filter(models.QuizAttempt.user_id == user_id)
+    attempt = q.first()
     if not attempt:
         raise ValueError("Quiz attempt not found")
+    if attempt.score is not None:
+        raise ValueError("This quiz was already submitted — start a new one to try again.")
+
+    previous = (
+        db.query(models.QuizAttempt)
+        .filter(
+            models.QuizAttempt.user_id == attempt.user_id,
+            models.QuizAttempt.topic_id == attempt.topic_id,
+            models.QuizAttempt.score.isnot(None),
+        )
+        .order_by(models.QuizAttempt.created_at.desc())
+        .first()
+    )
+    previous_score = previous.score if previous else None
 
     questions = attempt.questions
     correct = 0
@@ -105,6 +153,7 @@ def evaluate_quiz(
     attempt.answers = answers
     attempt.score = score
     attempt.explanations = explanations
+    attempt.submitted_at = datetime.utcnow()
     db.add(attempt)
 
     # Update rolling mastery score for this topic (simple exponential update).
@@ -116,6 +165,7 @@ def evaluate_quiz(
         )
         .first()
     )
+    was_mastered = bool(mastery and mastery.score >= 0.75)
     if not mastery:
         mastery = models.MasteryScore(
             user_id=attempt.user_id, topic_id=attempt.topic_id, score=score, attempts=1
@@ -125,6 +175,19 @@ def evaluate_quiz(
         mastery.score = alpha * score + (1 - alpha) * mastery.score
         mastery.attempts += 1
     db.add(mastery)
+    db.flush()
+
+    # Motivation + activity tracking
+    from app.services import gamification
+    from app.services.activity import record_event
+
+    topic_title = attempt.topic.title if attempt.topic else "topic"
+    awards = gamification.on_quiz_submitted(
+        db, attempt.user_id, attempt, previous_score,
+        mastered_first_time=(not was_mastered and mastery.score >= 0.75), topic_title=topic_title,
+    )
+    record_event(db, attempt.user_id, "quiz_submitted",
+                 {"topic_id": attempt.topic_id, "kind": attempt.kind, "score": score}, commit=False)
     db.commit()
 
     return {
@@ -132,4 +195,7 @@ def evaluate_quiz(
         "mastery_score": mastery.score,
         "explanations": explanations,
         "passed": score >= 0.75,
+        "kind": attempt.kind,
+        "previous_score": previous_score,
+        "points_awarded": awards,
     }

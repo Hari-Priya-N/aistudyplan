@@ -7,12 +7,19 @@ from pydantic import BaseModel, EmailStr
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    role: str = "student"
+    role: str = "student"          # "student" | "faculty" (alias "instructor")
+    full_name: Optional[str] = None
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    # Email OR roll/admission number (students registered from the Excel roster)
+    email: str
     password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class UserOut(BaseModel):
@@ -20,6 +27,10 @@ class UserOut(BaseModel):
     email: str
     role: str
     created_at: datetime
+    full_name: Optional[str] = None
+    roll_no: Optional[str] = None
+    class_name: Optional[str] = None
+    must_change_password: bool = False
 
     class Config:
         from_attributes = True
@@ -46,6 +57,9 @@ class StudyPlanItemOut(BaseModel):
     id: str
     topic_id: str
     topic_title: str
+    subject_name: Optional[str] = None
+    is_elective: bool = False
+    has_pre_assessment: bool = False
     status: str
     scheduled_order: int
     reason: Optional[str] = None
@@ -69,6 +83,7 @@ class QuizQuestion(BaseModel):
 class QuizOut(BaseModel):
     quiz_id: str
     topic_id: str
+    kind: str = "practice"   # pre_assessment | post_preparation | practice
     questions: list[dict]  # options only, no correct_index sent to client
 
 
@@ -84,6 +99,9 @@ class QuizResultOut(BaseModel):
     passed: bool
     explanations: list[dict]
     remediation_triggered: bool
+    kind: str = "practice"
+    previous_score: Optional[float] = None
+    points_awarded: list[dict] = []
 
 
 # ---- Study Kit ----
@@ -121,6 +139,7 @@ class ChatResponse(BaseModel):
     role: str
     content: str
     citations: list[dict] = []
+    quota: Optional[dict] = None
 
 
 # ---- Progress ----

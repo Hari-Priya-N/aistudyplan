@@ -32,7 +32,7 @@ def generate_study_kit(db: Session, llm: LLMProvider, user_id: str, topic_id: st
     if not topic:
         raise ValueError("Topic not found")
 
-    context = _get_topic_context(llm, user_id, topic.title, top_k=8)
+    context = _get_topic_context(llm, topic, top_k=8)
     messages = [
         {"role": "system", "content": STUDY_KIT_SYSTEM_PROMPT},
         {"role": "user", "content": f"Topic: {topic.title}\n\nSource material:\n{context[:6000]}"},

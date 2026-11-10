@@ -25,7 +25,17 @@ export default function StudyKit() {
   }, [topicId])
 
   if (loading) return <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-[var(--color-ink-soft)]">Assembling your study kit…</div>
-  if (error) return <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-[var(--color-rust)]">{error}</div>
+  if (error)
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
+        <p className="text-[var(--color-rust)] mb-4">{error}</p>
+        {error.toLowerCase().includes('pre-assessment') && (
+          <Link to={`/quiz/${topicId}?title=${encodeURIComponent(topicTitle)}`} className="btn-primary px-4 py-2 inline-block">
+            Take the pre-assessment · +10 pts
+          </Link>
+        )}
+      </div>
+    )
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">

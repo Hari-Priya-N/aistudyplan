@@ -48,14 +48,7 @@ def ingest_document(db: Session, document: models.Document, file_path: str, user
         db.commit()
 
         # --- Vectorization -> chunks stored in Chroma for RAG retrieval ---
-        if chunks:
-            embeddings = llm.embed(chunks)
-            ids = [str(uuid.uuid4()) for _ in chunks]
-            metadatas = [
-                {"document_id": document.id, "user_id": user_id, "chunk_index": i}
-                for i in range(len(chunks))
-            ]
-            add_chunks(ids=ids, documents=chunks, embeddings=embeddings, metadatas=metadatas)
+        store_chunks(db, llm, document, chunks, user_id)
 
         document.status = "ready"
         db.add(document)
@@ -66,3 +59,18 @@ def ingest_document(db: Session, document: models.Document, file_path: str, user
         db.add(document)
         db.commit()
         raise exc
+
+
+def store_chunks(db: Session, llm, document: models.Document, chunks: list[str], user_id: str):
+    """Save chunks to the DB (durable copy) and to Chroma (vector index)."""
+    if not chunks:
+        return
+    ids = [str(uuid.uuid4()) for _ in chunks]
+    for i, (cid, text) in enumerate(zip(ids, chunks)):
+        db.add(models.DocumentChunk(id=cid, document_id=document.id, chunk_index=i, content=text))
+    db.commit()
+    embeddings = llm.embed(chunks)
+    metadatas = [
+        {"document_id": document.id, "user_id": user_id, "chunk_index": i} for i in range(len(chunks))
+    ]
+    add_chunks(ids=ids, documents=chunks, embeddings=embeddings, metadatas=metadatas)

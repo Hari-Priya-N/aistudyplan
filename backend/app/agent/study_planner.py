@@ -15,13 +15,10 @@ def generate_study_plan(db: Session, user_id: str) -> list[models.StudyPlanItem]
     This mirrors the doc's "autonomously decides the next best topic" behavior —
     re-running this after every quiz submission keeps the plan adaptive.
     """
-    topics = (
-        db.query(models.Topic)
-        .join(models.Document)
-        .filter(models.Document.user_id == user_id)
-        .order_by(models.Topic.order_index)
-        .all()
-    )
+    from app.services.access import accessible_topics_query
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    topics = accessible_topics_query(db, user).all() if user else []
 
     scores_by_topic = {
         s.topic_id: s

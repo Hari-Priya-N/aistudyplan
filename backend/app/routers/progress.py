@@ -34,10 +34,20 @@ def cohort_dashboard(
     """Instructor-only: per-topic mastery aggregated across all students."""
     from fastapi import HTTPException
 
-    if current_user.role != models.RoleEnum.instructor:
+    if current_user.role not in (models.RoleEnum.instructor, models.RoleEnum.management):
         raise HTTPException(status_code=403, detail="Instructor role required")
 
-    scores = db.query(models.MasteryScore).all()
+    from app.services.access import subject_ids_for_user
+
+    subject_ids = subject_ids_for_user(db, current_user)
+    q = db.query(models.MasteryScore)
+    if subject_ids is not None:
+        q = (
+            q.join(models.Topic, models.Topic.id == models.MasteryScore.topic_id)
+            .join(models.Document, models.Document.id == models.Topic.document_id)
+            .filter(models.Document.subject_id.in_(subject_ids or ["__none__"]))
+        )
+    scores = q.all()
     by_topic: dict[str, list[float]] = {}
     titles: dict[str, str] = {}
     for s in scores:

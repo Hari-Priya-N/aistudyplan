@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { ApiError } from '../lib/api'
+import { useAuth, homePathFor } from '../context/AuthContext'
+import { api, ApiError } from '../lib/api'
 
 export default function Login() {
   const { login } = useAuth()
@@ -10,14 +10,19 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [demo, setDemo] = useState(false)
+
+  useEffect(() => {
+    api.publicConfig().then((c) => setDemo(!!c.demo)).catch(() => {})
+  }, [])
 
   const onSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
-      navigate('/')
+      const me = await login(email.trim(), password)
+      navigate(homePathFor(me))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
     } finally {
@@ -32,14 +37,15 @@ export default function Login() {
 
       <form onSubmit={onSubmit} className="card p-6 flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Email
+          Email or roll number
           <input
-            type="email"
+            type="text"
+            autoComplete="username"
             required
             className="input-field"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@school.edu"
+            placeholder="you@school.edu or 22AD001"
           />
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium">
@@ -60,6 +66,31 @@ export default function Login() {
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+
+      {demo && (
+        <div className="card p-4 mt-6 text-sm">
+          <p className="font-semibold mb-2">Demo accounts · password <span className="font-[var(--font-mono)]">Demo@1234</span></p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ['Student', 'student@demo.edu'],
+              ['Faculty', 'lakshmi@demo.edu'],
+              ['Management', 'admin@demo.edu'],
+            ].map(([label, mail]) => (
+              <button
+                key={mail}
+                type="button"
+                className="btn-secondary px-3 py-1.5 text-xs"
+                onClick={() => {
+                  setEmail(mail)
+                  setPassword('Demo@1234')
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <p className="text-sm text-[var(--color-ink-soft)] mt-6 text-center">
         New here?{' '}

@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
+import { pct } from '../components/ui'
+
+const KIND_COPY = {
+  pre_assessment: {
+    label: 'Pre-assessment',
+    blurb: "A quick baseline before you study — no pressure. Your score here is what we measure your improvement against, and it unlocks this topic's study kit.",
+  },
+  post_preparation: {
+    label: 'Post-preparation test',
+    blurb: 'You have studied this topic — let’s see how far you have come since your pre-assessment.',
+  },
+  practice: {
+    label: 'Practice test',
+    blurb: 'Every attempt that beats your last score earns improvement points.',
+  },
+}
 
 export default function Quiz() {
   const { topicId } = useParams()
@@ -63,8 +79,11 @@ export default function Quiz() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <Link to="/" className="text-sm text-[var(--color-indigo)] mb-4 inline-block">← Back to dashboard</Link>
-      <h1 className="text-3xl font-semibold mb-1">Quiz: {topicTitle}</h1>
-      <p className="text-[var(--color-ink-soft)] mb-8">Answer all questions, then submit to see your mastery score.</p>
+      <span className="block w-fit text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full badge-pending mb-2">
+        {KIND_COPY[quiz.kind]?.label ?? 'Quiz'}
+      </span>
+      <h1 className="text-3xl font-semibold mb-1">{topicTitle}</h1>
+      <p className="text-[var(--color-ink-soft)] mb-8">{KIND_COPY[quiz.kind]?.blurb ?? 'Answer all questions, then submit.'}</p>
 
       <div className="flex flex-col gap-6">
         {quiz.questions.map((q, qIndex) => {
@@ -120,6 +139,32 @@ export default function Quiz() {
           <p className="text-lg font-semibold">
             Score: {Math.round(result.score * 100)}% {result.passed ? '— mastered ✓' : '— needs more practice'}
           </p>
+          {result.previous_score !== null && result.previous_score !== undefined && (
+            <p className="text-sm text-[var(--color-ink-soft)] mt-1">
+              Previous attempt {pct(result.previous_score)} →{' '}
+              <span className={result.score >= result.previous_score ? 'text-[var(--color-forest)] font-semibold' : 'text-[var(--color-rust)] font-semibold'}>
+                {result.score >= result.previous_score ? '+' : ''}
+                {Math.round((result.score - result.previous_score) * 100)}%
+              </span>
+            </p>
+          )}
+          {result.points_awarded?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {result.points_awarded.map((a, i) => (
+                <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[var(--color-gold-tint)] text-[var(--color-gold)]">
+                  +{a.points} pts · {a.description}
+                </span>
+              ))}
+            </div>
+          )}
+          {result.kind === 'pre_assessment' && (
+            <div className="mt-4 p-3 rounded-md bg-[var(--color-indigo-tint)] text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span>Baseline saved. The study kit for this topic is now unlocked.</span>
+              <Link to={`/study-kit/${topicId}?title=${encodeURIComponent(topicTitle)}`} className="btn-primary px-4 py-2 text-center">
+                Open study kit →
+              </Link>
+            </div>
+          )}
 
           {result.remediation_triggered && (
             <div className="mt-4 pt-4 border-t border-[var(--color-line)]">

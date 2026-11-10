@@ -1,0 +1,37 @@
+# Render Blueprint — one-click deploy:
+#   Render dashboard -> New -> Blueprint -> pick this GitHub repo -> Apply.
+# Creates the web app (Docker, free plan) and a free PostgreSQL database.
+services:
+  - type: web
+    name: pathwise
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pathwise-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      # mock = works with no API key. For real AI answers set gemini + GEMINI_API_KEY
+      # (free key: https://aistudio.google.com/apikey) in the Render dashboard.
+      - key: LLM_PROVIDER
+        value: mock
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SEED_DEMO          # demo school data + demo logins; set false for real use
+        value: "true"
+      - key: CHAT_DAILY_QUOTA
+        value: "20"
+      - key: ALLOW_STUDENT_UPLOADS
+        value: "false"
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: REDIS_URL          # optional; in-memory fallback is used when blank
+        value: ""
+
+databases:
+  - name: pathwise-db
+    plan: free

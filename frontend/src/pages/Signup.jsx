@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth, homePathFor } from '../context/AuthContext'
 import { ApiError } from '../lib/api'
 
 export default function Signup() {
@@ -17,8 +17,8 @@ export default function Signup() {
     setError(null)
     setSubmitting(true)
     try {
-      await signup(form)
-      navigate('/')
+      const me = await signup(form)
+      navigate(homePathFor(me))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
     } finally {
@@ -47,7 +47,7 @@ export default function Signup() {
         <fieldset className="flex flex-col gap-1.5 text-sm font-medium">
           <legend className="mb-1">I am a…</legend>
           <div className="flex gap-2">
-            {['student', 'instructor'].map((r) => (
+            {[['student', 'Student'], ['faculty', 'Faculty']].map(([r, label]) => (
               <button
                 type="button"
                 key={r}
@@ -58,10 +58,13 @@ export default function Signup() {
                     : 'border-[var(--color-line)] text-[var(--color-ink-soft)]'
                 }`}
               >
-                {r}
+                {label}
               </button>
             ))}
           </div>
+          <span className="text-xs font-normal text-[var(--color-ink-soft)] mt-1">
+            Students are usually registered by their faculty from an Excel sheet — sign in with your roll number if so.
+          </span>
         </fieldset>
 
         {error && <p className="text-sm text-[var(--color-rust)]">{error}</p>}

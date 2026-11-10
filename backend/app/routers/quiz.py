@@ -7,6 +7,7 @@ from app.agent.study_planner import MASTERY_THRESHOLD
 from app.core.security import get_current_user
 from app.database import get_db
 from app.llm.factory import get_llm_provider
+from app.services.access import accessible_topics_query
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
 
@@ -17,15 +18,17 @@ def generate(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    if not accessible_topics_query(db, current_user).filter(models.Topic.id == payload.topic_id).first():
+        raise HTTPException(status_code=404, detail="Topic not found in your subjects")
     llm = get_llm_provider()
     try:
         attempt = generate_quiz(db, llm, current_user.id, payload.topic_id, payload.num_questions)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e))
 
     # Never send correct_index to the client before submission.
     sanitized = [{"question": q["question"], "options": q["options"]} for q in attempt.questions]
-    return schemas.QuizOut(quiz_id=attempt.id, topic_id=attempt.topic_id, questions=sanitized)
+    return schemas.QuizOut(quiz_id=attempt.id, topic_id=attempt.topic_id, kind=attempt.kind, questions=sanitized)
 
 
 @router.post("/submit", response_model=schemas.QuizResultOut)
@@ -36,7 +39,7 @@ def submit(
 ):
     llm = get_llm_provider()
     try:
-        result = evaluate_quiz(db, llm, payload.quiz_id, payload.answers)
+        result = evaluate_quiz(db, llm, payload.quiz_id, payload.answers, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -51,6 +54,9 @@ def submit(
         passed=result["passed"],
         explanations=result["explanations"],
         remediation_triggered=remediation_triggered,
+        kind=result["kind"],
+        previous_score=result["previous_score"],
+        points_awarded=result["points_awarded"],
     )
 
 

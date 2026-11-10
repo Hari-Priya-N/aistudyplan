@@ -70,3 +70,21 @@ def require_instructor(user: models.User = Depends(get_current_user)) -> models.
     if user.role != models.RoleEnum.instructor:
         raise HTTPException(status_code=403, detail="Instructor role required")
     return user
+
+
+def require_roles(*roles: models.RoleEnum):
+    """Dependency factory: `Depends(require_roles(RoleEnum.management))`."""
+
+    def _dep(user: models.User = Depends(get_current_user)) -> models.User:
+        if user.role not in roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"This action requires one of these roles: {', '.join(r.value for r in roles)}",
+            )
+        return user
+
+    return _dep
+
+
+require_management = require_roles(models.RoleEnum.management)
+require_staff = require_roles(models.RoleEnum.instructor, models.RoleEnum.management)

@@ -50,7 +50,7 @@ def generate_remediation(
         raise ValueError("Topic not found")
 
     focus = sub_concept or topic.title
-    context = _get_topic_context(llm, user_id, focus)
+    context = _get_topic_context(llm, topic, query=focus)
 
     messages = [
         {"role": "system", "content": MICRO_MODULE_SYSTEM_PROMPT},

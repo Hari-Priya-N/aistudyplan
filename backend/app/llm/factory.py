@@ -20,7 +20,14 @@ def get_llm_provider() -> LLMProvider:
 
     if settings.llm_provider == "openai":
         from app.llm.providers.openai_provider import OpenAIProvider
-        return OpenAIProvider(api_key=settings.openai_api_key, model=settings.llm_model)
+        return OpenAIProvider(
+            api_key=settings.openai_api_key, model=settings.llm_model, base_url=settings.openai_base_url
+        )
+
+    if settings.llm_provider == "gemini":
+        from app.llm.providers.gemini_provider import GeminiProvider
+        model = settings.llm_model if settings.llm_model.startswith("gemini") else "gemini-2.5-flash"
+        return GeminiProvider(api_key=settings.gemini_api_key, model=model)
 
     if settings.llm_provider == "ollama":
         from app.llm.providers.ollama_provider import OllamaProvider

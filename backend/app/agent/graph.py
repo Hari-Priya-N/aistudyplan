@@ -26,17 +26,16 @@ from app.agent.remediation import generate_remediation
 from app.agent.quiz_tools import generate_quiz
 from app.llm.base import LLMProvider
 from app.rag.query_engine import answer_content_question
+from app.services.access import accessible_document_ids, accessible_topics_query
 
 
 def _resolve_topic_id(db: Session, user_id: str, topic_hint: str | None) -> str | None:
     if not topic_hint:
         return None
-    topic = (
-        db.query(models.Topic)
-        .join(models.Document)
-        .filter(models.Document.user_id == user_id, models.Topic.title.ilike(f"%{topic_hint}%"))
-        .first()
-    )
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return None
+    topic = accessible_topics_query(db, user).filter(models.Topic.title.ilike(f"%{topic_hint}%")).first()
     return topic.id if topic else None
 
 
@@ -48,7 +47,9 @@ def build_tutor_graph(db: Session, llm: LLMProvider):
         return state
 
     def rag_node(state: AgentState) -> AgentState:
-        result = answer_content_question(llm, state["user_id"], state["message"])
+        result = answer_content_question(
+            llm, accessible_document_ids(db, state["user_id"]), state["message"]
+        )
         state["response_content"] = result["content"]
         state["citations"] = result["citations"]
         return state
@@ -56,7 +57,7 @@ def build_tutor_graph(db: Session, llm: LLMProvider):
     def study_plan_node(state: AgentState) -> AgentState:
         plan = generate_study_plan(db, state["user_id"])
         if not plan:
-            state["response_content"] = "Upload a syllabus first and I'll build your study plan."
+            state["response_content"] = "There's no course content for your subjects yet — once your faculty uploads it, I'll build your study plan."
         else:
             next_item = plan[0]
             state["response_content"] = (
@@ -102,7 +103,7 @@ def build_tutor_graph(db: Session, llm: LLMProvider):
     def fallback_node(state: AgentState) -> AgentState:
         state["response_content"] = llm.complete(
             [
-                {"role": "system", "content": "You are a friendly AI tutor. Keep replies brief."},
+                {"role": "system", "content": "You are Elara, a friendly AI tutor for school students. Keep replies brief."},
                 {"role": "user", "content": state["message"]},
             ],
             temperature=0.5,

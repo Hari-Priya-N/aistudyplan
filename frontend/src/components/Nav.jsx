@@ -1,13 +1,35 @@
 import { NavLink } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth, ROLE_LABEL } from '../context/AuthContext'
 
 const linkClass = ({ isActive }) =>
-  `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+  `px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
     isActive ? 'bg-[var(--color-indigo-tint)] text-[var(--color-indigo)]' : 'text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]'
   }`
 
+const LINKS = {
+  student: [
+    ['/', 'My path', true],
+    ['/chat', 'Elara'],
+    ['/progress', 'My progress'],
+    ['/rewards', 'Rewards'],
+    ['/upload', 'Upload'],
+  ],
+  instructor: [
+    ['/faculty', 'Dashboard'],
+    ['/upload', 'Content'],
+    ['/roster', 'Students'],
+    ['/chat', 'Elara'],
+  ],
+  management: [
+    ['/management', 'Dashboard'],
+    ['/roster', 'Registration'],
+    ['/upload', 'Content'],
+  ],
+}
+
 export default function Nav() {
   const { user, logout } = useAuth()
+  const links = user ? LINKS[user.role] ?? LINKS.student : []
 
   return (
     <header className="border-b border-[var(--color-line)] bg-[var(--color-surface)]/80 backdrop-blur sticky top-0 z-10">
@@ -25,19 +47,25 @@ export default function Nav() {
 
         {user && (
           <nav className="flex items-center gap-1 overflow-x-auto">
-            <NavLink to="/" end className={linkClass}>Dashboard</NavLink>
-            <NavLink to="/upload" className={linkClass}>Upload</NavLink>
-            <NavLink to="/chat" className={linkClass}>Tutor Chat</NavLink>
-            <NavLink to="/progress" className={linkClass}>Progress</NavLink>
+            {links.map(([to, label, end]) => (
+              <NavLink key={to} to={to} end={!!end} className={linkClass}>
+                {label}
+                {user.role === 'student' && to === '/upload' && <span aria-hidden="true"> 🔒</span>}
+              </NavLink>
+            ))}
           </nav>
         )}
 
         <div className="flex items-center gap-3 shrink-0">
           {user ? (
             <>
-              <span className="hidden sm:inline text-sm text-[var(--color-ink-soft)] font-[var(--font-mono)]">
-                {user.email} · {user.role}
-              </span>
+              <NavLink to="/account" className="hidden md:flex flex-col items-end leading-tight text-right">
+                <span className="text-sm font-medium">{user.full_name || user.email.split('@')[0]}</span>
+                <span className="text-xs text-[var(--color-ink-soft)]">
+                  {ROLE_LABEL[user.role] ?? user.role}
+                  {user.class_name ? ` · ${user.class_name}` : ''}
+                </span>
+              </NavLink>
               <button onClick={logout} className="btn-secondary text-sm px-3 py-1.5">
                 Sign out
               </button>
